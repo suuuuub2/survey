@@ -1,0 +1,257 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>임베드 설문: 사번 + 5x3 이미지 선택(최대3)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --primary: #2563eb;
+      --border: #e5e7eb;
+      --danger: #ef4444;
+      --ok: #16a34a;
+    }
+    body { margin: 0; background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, "Noto Sans KR", Arial, sans-serif; }
+    .container { max-width: 880px; margin: 0 auto; padding: 20px 16px 40px; }
+    h1 { font-size: 20px; margin: 0 0 8px; }
+    p.desc { margin: 0 0 16px; color: var(--muted); }
+    .card { border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: #fff; }
+    .field { margin-bottom: 16px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; }
+    input[type="text"] {
+      width: 100%; padding: 12px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 15px;
+    }
+    .grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+    .item { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: #fff; display: flex; flex-direction: column; }
+    .thumb { aspect-ratio: 4/3; width: 100%; object-fit: cover; display: block; background: #f8fafc; }
+    .meta { padding: 10px 10px 12px; display: flex; align-items: center; gap: 8px; }
+    .checkbox { width: 18px; height: 18px; }
+    .title { flex: 1; font-size: 14px; }
+    .links { display: flex; gap: 10px; margin-top: 8px; }
+    .link-btn {
+      display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; text-decoration: none; color: var(--text); background: #f9fafb; width: 100%;
+    }
+    .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .btn {
+      appearance: none; border: 0; border-radius: 10px; padding: 12px 16px; font-size: 15px; cursor: pointer;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-ghost { background: #f3f4f6; color: var(--text); }
+    .hint { font-size: 13px; color: var(--muted); margin-top: 6px; }
+    .error { color: var(--danger); font-size: 14px; margin-top: 8px; }
+    .success { color: var(--ok); font-size: 14px; margin-top: 8px; }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>공모전 설문 임베드</h1>
+    <p class="desc">사번 입력 후, 아래 15개 이미지 중 최대 3개까지 선택하세요. 각 항목의 “미리보기/다운로드”로 실제 파일 확인이 가능합니다.</p>
+
+    <form id="survey" class="card" novalidate>
+      <!-- Q1: 사번 -->
+      <div class="field">
+        <label for="empId">사번(필수)</label>
+        <input id="empId" name="empId" type="text" inputmode="numeric" autocomplete="off" placeholder="예: 20200048" required />
+      </div>
+
+      <!-- Q2: 5x3 이미지 체크박스 -->
+      <div class="field">
+        <label>이미지 선택(최대 3개)</label>
+        <div class="hint">체크박스 3개를 초과하면 선택이 제한됩니다.</div>
+
+        <div id="grid" class="grid"></div>
+        <div id="err" class="error" style="display:none;"></div>
+      </div>
+
+      <div class="actions">
+        <button type="button" class="btn btn-ghost" id="resetBtn">초기화</button>
+        <button type="submit" class="btn btn-primary">제출</button>
+      </div>
+
+      <div id="msg" class="success" style="display:none;"></div>
+    </form>
+  </div>
+
+  <script>
+    // ====== 데이터 정의: 15개 항목(썸네일 URL, 제목, 미리보기 URL) ======
+    const items = Array.from({ length: 15 }).map((_, i) => {
+      const idx = i + 1;
+      return {
+        id: "opt" + idx,
+        title: "항목 " + idx,
+        thumbUrl: "https://example.com/thumbs/img" + idx + ".jpg",      // 썸네일 이미지
+        previewUrl: "https://example.com/previews/file" + idx + ".jpg", // 미리보기(원본/큰 이미지/문서 뷰어 링크)
+      };
+    });
+
+    const grid = document.getElementById("grid");
+    const err = document.getElementById("err");
+    const msg = document.getElementById("msg");
+    const survey = document.getElementById("survey");
+    const resetBtn = document.getElementById("resetBtn");
+
+    // 최대 선택 수
+    const MAX_SELECT = 3;
+
+    // UI 생성
+    function renderGrid() {
+      const frag = document.createDocumentFragment();
+      items.forEach(item => {
+        const card = document.createElement("div");
+        card.className = "item";
+
+        const img = document.createElement("img");
+        img.className = "thumb";
+        img.src = item.thumbUrl;
+        img.alt = item.title;
+        img.loading = "lazy";
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "checkbox";
+        checkbox.name = "images";
+        checkbox.value = item.id;
+
+        const title = document.createElement("div");
+        title.className = "title";
+        title.textContent = item.title;
+
+        meta.appendChild(checkbox);
+        meta.appendChild(title);
+
+        const links = document.createElement("div");
+        links.className = "links";
+
+        const aPrev = document.createElement("a");
+        aPrev.className = "link-btn";
+        aPrev.href = item.previewUrl;
+        aPrev.target = "_blank";
+        aPrev.rel = "noopener";
+        aPrev.textContent = "미리보기";
+
+        links.appendChild(aPrev);
+
+        card.appendChild(img);
+        card.appendChild(meta);
+        card.appendChild(links);
+
+        frag.appendChild(card);
+      });
+      grid.appendChild(frag);
+    }
+
+    // 선택 제한 로직
+    function updateLimit(e) {
+      const checked = document.querySelectorAll('input[name="images"]:checked');
+      if (checked.length > MAX_SELECT) {
+        e.target.checked = false;
+        showError("최대 " + MAX_SELECT + "개까지 선택할 수 있습니다.");
+      } else {
+        hideError();
+      }
+    }
+
+    function showError(text) {
+      err.textContent = text;
+      err.style.display = "block";
+    }
+    function hideError() {
+      err.style.display = "none";
+      err.textContent = "";
+    }
+    function showMsg(text) {
+      msg.textContent = text;
+      msg.style.display = "block";
+    }
+    function hideMsg() {
+      msg.style.display = "none";
+      msg.textContent = "";
+    }
+
+    // 제출 처리(데모)
+	const contactForm = document.getElementById("survey");
+    survey.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      hideMsg(); hideError();
+	  
+	  const formData = new FormData(contactForm);
+	  const objData = {};
+
+      const empId = document.getElementById("empId").value.trim();
+      const picks = Array.from(document.querySelectorAll('input[name="images"]:checked')).map(i => i.value);
+
+      if (!empId) {
+        showError("사번을 입력하세요.");
+        return;
+      }
+      // 예시: 숫자 8자리 검증
+      if (!/^[0-9]{8}$/.test(empId)) {
+        showError("사번은 숫자 8자리로 입력하세요.");
+        return;
+      }
+      if (picks.length !== 3) {
+        showError("3개 선택하세요. (최대 3개)");
+        return;
+      }
+      if (picks.length > MAX_SELECT) {
+        showError("최대 " + MAX_SELECT + "개까지 선택할 수 있습니다.");
+        return;
+      }
+
+      // TODO: 사내 API 연동
+      // await fetch("/api/survey", { method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ empId, picks }) });
+
+
+formData.forEach((value, key) => (objData[key] = value));
+    try {
+	
+      const response = await fetch(
+        "https://script.google.com/macros/s/AKfycbzThc9dPsHWPDXBaXVsRsa3QMYViztM5uFA9Y10kUl8GhZ39uj06DJOINY1uernRP8ZeQ/exec",  // --(1)
+        {
+          method: "POST",
+		  headers: { "Content-Type": "application/json" },
+		  body: JSON.stringify({ empId, picks })
+        }
+      );
+
+      const text = await response.json();
+      if (text === "success") {
+        e.target.reset();
+        alert("전송되었습니다. ");
+      } else {
+        alert("전송에 실패했습니다. 잠시후 다시 시도해주세요.");
+      }
+    } catch (error) {
+      alert("전송에 실패했습니다. 잠시후 다시 시도해주세요.");
+    }
+  });
+
+    // 체크박스 제한 이벤트 연결
+    document.addEventListener("change", (e) => {
+      if (e.target && e.target.name === "images" && e.target.type === "checkbox") {
+        updateLimit(e);
+      }
+    });
+
+    // 초기화
+    resetBtn.addEventListener("click", () => {
+      survey.reset();
+      hideError(); hideMsg();
+    });
+
+    renderGrid();
+  </script>
+</body>
+</html>
