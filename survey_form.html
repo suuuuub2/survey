@@ -216,17 +216,13 @@
 
 formData.forEach((value, key) => (objData[key] = value));
 	try {
-	  const response = await fetch(
-	    "https://script.google.com/macros/s/AKfycbwOOj_tKwdhDOUVvsHb96XPcayoFk4OgDEPUd1I7aC5yS9PMu43ES5U7rlHiTRITW-61Q/exec",
-	    {
-	      method: "POST",
-	      headers: { "Content-Type": "application/json" },
-	      body: JSON.stringify({ empId, picks })
-	    }
-	  );
-	
-	  const data = await response.json(); // ← 객체로 받기
-	  if (data && data.ok === true) {     // ← ok 플래그 확인
+	  const response = await fetch("https://script.google.com/macros/s/AKfycbzwEcuctq8q_AWWXh6U83xeYNtDM1DieStgTQVnKAL4LFQsVyEQh8SNRRz-iGP0cRs6Tw/exec", {
+	    method: "POST",
+	    headers: { "Content-Type": "application/json" },
+	    body: JSON.stringify({ empId, picks })
+	  });
+	  const data = await response.json();
+	  if (data && data.ok === true) {
 	    e.target.reset();
 	    alert("전송되었습니다.");
 	  } else {
