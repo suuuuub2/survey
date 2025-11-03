@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 서비스 사용 설문조사</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // 기본 AI 서비스 목록
+        const defaultServices = [
+            'ChatGPT',
+            'Claude',
+            'Gemini',
+            'Copilot',
+            'Midjourney',
+            'DALL-E',
+            'Perplexity'
+        ];
+
+        function AISurveyApp() {
+            const [currentView, setCurrentView] = useState('survey'); // 'survey' or 'dashboard'
+            const [services, setServices] = useState(defaultServices);
+            const [newService, setNewService] = useState('');
+            const [dailyServices, setDailyServices] = useState([]);
+            const [weeklyServices, setWeeklyServices] = useState([]);
+            const [responses, setResponses] = useState([]);
+            const [showThankYou, setShowThankYou] = useState(false);
+
+            const handleAddService = () => {
+                if (newService.trim() && !services.includes(newService.trim())) {
+                    setServices([...services, newService.trim()]);
+                    setNewService('');
+                }
+            };
+
+            const handleDailyToggle = (service) => {
+                setDailyServices(prev => 
+                    prev.includes(service) 
+                        ? prev.filter(s => s !== service)
+                        : [...prev, service]
+                );
+            };
+
+            const handleWeeklyToggle = (service) => {
+                setWeeklyServices(prev => 
+                    prev.includes(service) 
+                        ? prev.filter(s => s !== service)
+                        : [...prev, service]
+                );
+            };
+
+            const handleSubmit = () => {
+                const response = {
+                    id: Date.now(),
+                    timestamp: new Date().toISOString(),
+                    daily: [...dailyServices],
+                    weekly: [...weeklyServices]
+                };
+                
+                setResponses(prev => [...prev, response]);
+                setDailyServices([]);
+                setWeeklyServices([]);
+                setShowThankYou(true);
+                
+                setTimeout(() => {
+                    setShowThankYou(false);
+                }, 2000);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 py-8 px-4">
+                    <div className="max-w-7xl mx-auto">
+                        <header className="text-center mb-8">
+                            <h1 className="text-4xl font-bold text-indigo-900 mb-2">
+                                AI 서비스 사용 설문조사
+                            </h1>
+                            <p className="text-gray-600">
+                                여러분의 AI 서비스 사용 패턴을 알려주세요
+                            </p>
+                        </header>
+
+                        {/* 뷰 전환 버튼 */}
+                        <div className="flex justify-center mb-8 gap-4">
+                            <button
+                                onClick={() => setCurrentView('survey')}
+                                className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                                    currentView === 'survey'
+                                        ? 'bg-indigo-600 text-white shadow-lg'
+                                        : 'bg-white text-indigo-600 hover:bg-indigo-50'
+                                }`}
+                            >
+                                📝 설문 참여
+                            </button>
+                            <button
+                                onClick={() => setCurrentView('dashboard')}
+                                className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                                    currentView === 'dashboard'
+                                        ? 'bg-indigo-600 text-white shadow-lg'
+                                        : 'bg-white text-indigo-600 hover:bg-indigo-50'
+                                }`}
+                            >
+                                📊 대시보드 보기
+                            </button>
+                        </div>
+
+                        {currentView === 'survey' ? (
+                            <SurveyView 
+                                services={services}
+                                newService={newService}
+                                setNewService={setNewService}
+                                handleAddService={handleAddService}
+                                dailyServices={dailyServices}
+                                weeklyServices={weeklyServices}
+                                handleDailyToggle={handleDailyToggle}
+                                handleWeeklyToggle={handleWeeklyToggle}
+                                handleSubmit={handleSubmit}
+                                showThankYou={showThankYou}
+                            />
+                        ) : (
+                            <DashboardView 
+                                responses={responses}
+                                services={services}
+                            />
+                        )}
+                    </div>
+                </div>
+            );
+        }
+
+        function SurveyView({ 
+            services, 
+            newService, 
+            setNewService, 
+            handleAddService,
+            dailyServices,
+            weeklyServices,
+            handleDailyToggle,
+            handleWeeklyToggle,
+            handleSubmit,
+            showThankYou
+        }) {
+            return (
+                <div className="max-w-4xl mx-auto">
+                    {/* 서비스 추가 섹션 */}
+                    <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                            🎯 서비스 추가하기
+                        </h2>
+                        <div className="flex gap-3">
+                            <input
+                                type="text"
+                                value={newService}
+                                onChange={(e) => setNewService(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleAddService()}
+                                placeholder="사용하는 AI 서비스 이름을 입력하세요"
+                                className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:outline-none"
+                            />
+                            <button
+                                onClick={handleAddService}
+                                className="px-6 py-3 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                            >
+                                추가
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* 하루에 한 번 이상 사용 */}
+                    <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                            ☀️ 하루에 한 번 이상 사용하는 서비스
+                        </h2>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {services.map(service => (
+                                <label
+                                    key={service}
+                                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                        dailyServices.includes(service)
+                                            ? 'border-green-500 bg-green-50'
+                                            : 'border-gray-300 hover:border-green-300'
+                                    }`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={dailyServices.includes(service)}
+                                        onChange={() => handleDailyToggle(service)}
+                                        className="w-5 h-5 text-green-600 rounded"
+                                    />
+                                    <span className="font-medium text-gray-700">{service}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 1주일에 한 번 사용 */}
+                    <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                            📅 1주일에 한 번 정도 사용하는 서비스
+                        </h2>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {services.map(service => (
+                                <label
+                                    key={service}
+                                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                        weeklyServices.includes(service)
+                                            ? 'border-blue-500 bg-blue-50'
+                                            : 'border-gray-300 hover:border-blue-300'
+                                    }`}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={weeklyServices.includes(service)}
+                                        onChange={() => handleWeeklyToggle(service)}
+                                        className="w-5 h-5 text-blue-600 rounded"
+                                    />
+                                    <span className="font-medium text-gray-700">{service}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* 제출 버튼 */}
+                    <div className="flex justify-center">
+                        <button
+                            onClick={handleSubmit}
+                            disabled={dailyServices.length === 0 && weeklyServices.length === 0}
+                            className={`px-8 py-4 rounded-lg font-bold text-lg transition-all ${
+                                dailyServices.length === 0 && weeklyServices.length === 0
+                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                    : 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:shadow-xl hover:scale-105'
+                            }`}
+                        >
+                            🚀 응답 제출하기
+                        </button>
+                    </div>
+
+                    {/* 감사 메시지 */}
+                    {showThankYou && (
+                        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+                            <div className="bg-white rounded-xl p-8 shadow-2xl animate-bounce">
+                                <p className="text-2xl font-bold text-indigo-600">
+                                    ✨ 응답해 주셔서 감사합니다! ✨
+                                </p>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        function DashboardView({ responses, services }) {
+            const chartRef = useRef(null);
+            const chartInstance = useRef(null);
+
+            useEffect(() => {
+                if (chartRef.current && responses.length > 0) {
+                    const ctx = chartRef.current.getContext('2d');
+
+                    // 기존 차트 제거
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+
+                    // 서비스별 사용 빈도 계산
+                    const dailyCount = {};
+                    const weeklyCount = {};
+
+                    services.forEach(service => {
+                        dailyCount[service] = 0;
+                        weeklyCount[service] = 0;
+                    });
+
+                    responses.forEach(response => {
+                        response.daily.forEach(service => {
+                            if (dailyCount[service] !== undefined) {
+                                dailyCount[service]++;
+                            }
+                        });
+                        response.weekly.forEach(service => {
+                            if (weeklyCount[service] !== undefined) {
+                                weeklyCount[service]++;
+                            }
+                        });
+                    });
+
+                    // 차트 생성
+                    chartInstance.current = new Chart(ctx, {
+                        type: 'bar',
+                        data: {
+                            labels: services,
+                            datasets: [
+                                {
+                                    label: '하루 한 번 이상',
+                                    data: services.map(s => dailyCount[s]),
+                                    backgroundColor: 'rgba(34, 197, 94, 0.7)',
+                                    borderColor: 'rgb(34, 197, 94)',
+                                    borderWidth: 2
+                                },
+                                {
+                                    label: '주 1회',
+                                    data: services.map(s => weeklyCount[s]),
+                                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                                    borderColor: 'rgb(59, 130, 246)',
+                                    borderWidth: 2
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                    labels: {
+                                        font: {
+                                            size: 14,
+                                            weight: 'bold'
+                                        }
+                                    }
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'AI 서비스 사용 빈도',
+                                    font: {
+                                        size: 18,
+                                        weight: 'bold'
+                                    }
+                                }
+                            },
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        stepSize: 1
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                return () => {
+                    if (chartInstance.current) {
+                        chartInstance.current.destroy();
+                    }
+                };
+            }, [responses, services]);
+
+            // 통계 계산
+            const totalResponses = responses.length;
+            const totalDailySelections = responses.reduce((sum, r) => sum + r.daily.length, 0);
+            const totalWeeklySelections = responses.reduce((sum, r) => sum + r.weekly.length, 0);
+
+            // 가장 인기 있는 서비스
+            const serviceCounts = {};
+            services.forEach(service => {
+                serviceCounts[service] = 0;
+            });
+
+            responses.forEach(response => {
+                [...response.daily, ...response.weekly].forEach(service => {
+                    if (serviceCounts[service] !== undefined) {
+                        serviceCounts[service]++;
+                    }
+                });
+            });
+
+            const sortedServices = Object.entries(serviceCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 5);
+
+            return (
+                <div className="max-w-6xl mx-auto">
+                    {/* 통계 카드 */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-gray-600 text-sm font-medium">총 응답 수</p>
+                                    <p className="text-3xl font-bold text-indigo-600 mt-1">
+                                        {totalResponses}
+                                    </p>
+                                </div>
+                                <div className="text-4xl">📊</div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-gray-600 text-sm font-medium">일일 사용 선택</p>
+                                    <p className="text-3xl font-bold text-green-600 mt-1">
+                                        {totalDailySelections}
+                                    </p>
+                                </div>
+                                <div className="text-4xl">☀️</div>
+                            </div>
+                        </div>
+
+                        <div className="bg-white rounded-xl shadow-lg p-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-gray-600 text-sm font-medium">주간 사용 선택</p>
+                                    <p className="text-3xl font-bold text-blue-600 mt-1">
+                                        {totalWeeklySelections}
+                                    </p>
+                                </div>
+                                <div className="text-4xl">📅</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* 차트 */}
+                    <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+                        <div style={{ height: '400px' }}>
+                            <canvas ref={chartRef}></canvas>
+                        </div>
+                    </div>
+
+                    {/* 인기 서비스 순위 */}
+                    <div className="bg-white rounded-xl shadow-lg p-6">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+                            🏆 가장 많이 사용되는 AI 서비스 TOP 5
+                        </h2>
+                        <div className="space-y-3">
+                            {sortedServices.map(([service, count], index) => (
+                                <div 
+                                    key={service}
+                                    className="flex items-center gap-4 p-4 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg"
+                                >
+                                    <div className="text-2xl font-bold text-indigo-600 w-8">
+                                        #{index + 1}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="font-bold text-gray-800">{service}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-2xl font-bold text-indigo-600">{count}</p>
+                                        <p className="text-xs text-gray-500">응답</p>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    {responses.length === 0 && (
+                        <div className="text-center py-12">
+                            <p className="text-gray-500 text-lg">
+                                아직 응답이 없습니다. 설문에 참여해주세요! 🙏
+                            </p>
+                        </div>
+                    )}
+                </div>
+            );
+        }
+
+        ReactDOM.render(<AISurveyApp />, document.getElementById('root'));
+    </script>
+</body>
+</html>
